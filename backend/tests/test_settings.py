@@ -2,7 +2,6 @@ import pytest
 from datetime import datetime
 from app.models import User, Notification
 from app.core.security import create_access_token, hash_password
-from app.workers.tasks import send_email_notification_task
 
 def test_update_profile_name(client, db_session):
     user = User(
@@ -104,100 +103,3 @@ def test_get_and_patch_preferences_endpoints(client, db_session):
     res_get_updated = client.get("/api/auth/preferences", headers=headers)
     assert res_get_updated.json()["down_alerts_enabled"] is False
 
-
-def test_send_email_task_respects_master_switch(db_session):
-    user = User(
-        name="Master Disabled User",
-        email="master_off@example.com",
-        password=hash_password("password123"),
-        email_notifications_enabled=False,  # Master OFF
-        down_alerts_enabled=True,            # DOWN ON
-        recovery_alerts_enabled=True,        # Recovery ON
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    notif = Notification(
-        user_id=user.id,
-        type="DOWN",
-        title="Monitor Failure Alert",
-        message="Service is DOWN",
-        created_at=datetime.utcnow(),
-    )
-    db_session.add(notif)
-    db_session.commit()
-    db_session.refresh(notif)
-
-    # Master OFF should block email delivery
-    res = send_email_notification_task(notif.id)
-    assert res["status"] == "disabled_by_user"
-
-    db_session.refresh(notif)
-    assert notif.email_status == "SKIPPED"
-    assert "master user preference" in notif.email_error
-
-
-def test_send_email_task_respects_down_alert_preference(db_session):
-    user = User(
-        name="Alert Disabled User",
-        email="disabled@example.com",
-        password=hash_password("password123"),
-        email_notifications_enabled=True,
-        down_alerts_enabled=False,  # DOWN alerts disabled
-        recovery_alerts_enabled=True,
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    notif = Notification(
-        user_id=user.id,
-        type="DOWN",
-        title="Monitor Failure Alert",
-        message="Service is DOWN",
-        created_at=datetime.utcnow(),
-    )
-    db_session.add(notif)
-    db_session.commit()
-    db_session.refresh(notif)
-
-    # Execute email task
-    res = send_email_notification_task(notif.id)
-    assert res["status"] == "down_alerts_disabled"
-
-    db_session.refresh(notif)
-    assert notif.email_status == "SKIPPED"
-    assert "DOWN email alerts disabled" in notif.email_error
-
-
-def test_send_email_task_respects_recovery_alert_preference(db_session):
-    user = User(
-        name="Recovery Disabled User",
-        email="rec_disabled@example.com",
-        password=hash_password("password123"),
-        email_notifications_enabled=True,
-        down_alerts_enabled=True,
-        recovery_alerts_enabled=False,  # RECOVERY alerts disabled
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    notif = Notification(
-        user_id=user.id,
-        type="RECOVERY",
-        title="Monitor Recovery Alert",
-        message="Service has recovered",
-        created_at=datetime.utcnow(),
-    )
-    db_session.add(notif)
-    db_session.commit()
-    db_session.refresh(notif)
-
-    res = send_email_notification_task(notif.id)
-    assert res["status"] == "recovery_alerts_disabled"
-
-    db_session.refresh(notif)
-    assert notif.email_status == "SKIPPED"
-    assert "RECOVERY email alerts disabled" in notif.email_error

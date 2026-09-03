@@ -83,6 +83,10 @@ export default function NotificationBell() {
     return <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />;
   };
 
+  const recentNotifications = [...notifications]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 2);
+
   return (
     <div ref={dropdownRef} style={{ position: 'relative' }}>
       <button
@@ -210,7 +214,7 @@ export default function NotificationBell() {
                 <p style={{ margin: 0, fontSize: '0.8125rem' }}>No notifications</p>
               </div>
             ) : (
-              notifications.map((notif) => (
+              recentNotifications.map((notif) => (
                 <div
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}

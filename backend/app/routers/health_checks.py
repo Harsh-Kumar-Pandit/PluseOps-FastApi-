@@ -102,7 +102,6 @@ def get_monitor_stats(
             detail="Monitor not found",
         )
 
-    # Only calculate statistics for the requested period.
     since = datetime.utcnow() - timedelta(days=days)
 
     base_filter = (
@@ -110,17 +109,11 @@ def get_monitor_stats(
         HealthCheck.checked_at >= since,
     )
 
-    # -----------------------------
-    # TOTAL CHECKS
-    # -----------------------------
     total_checks = db.scalar(
         select(func.count(HealthCheck.id))
         .where(*base_filter)
     ) or 0
 
-    # -----------------------------
-    # SUCCESSFUL CHECKS
-    # -----------------------------
     successful_checks = db.scalar(
         select(func.count(HealthCheck.id))
         .where(
@@ -129,9 +122,6 @@ def get_monitor_stats(
         )
     ) or 0
 
-    # -----------------------------
-    # FAILED CHECKS
-    # -----------------------------
     failed_checks = db.scalar(
         select(func.count(HealthCheck.id))
         .where(
@@ -140,9 +130,6 @@ def get_monitor_stats(
         )
     ) or 0
 
-    # -----------------------------
-    # DEGRADED CHECKS
-    # -----------------------------
     degraded_checks = db.scalar(
         select(func.count(HealthCheck.id))
         .where(
@@ -151,9 +138,6 @@ def get_monitor_stats(
         )
     ) or 0
 
-    # -----------------------------
-    # RESPONSE TIME
-    # -----------------------------
     average_response_time = db.scalar(
         select(func.avg(HealthCheck.response_time))
         .where(
@@ -170,9 +154,6 @@ def get_monitor_stats(
         )
     )
 
-    # -----------------------------
-    # UPTIME
-    # -----------------------------
     uptime_percentage = (
         (successful_checks / total_checks) * 100
         if total_checks > 0

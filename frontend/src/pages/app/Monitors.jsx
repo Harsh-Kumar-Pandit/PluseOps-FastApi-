@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Radio, Plus, AlertCircle, RotateCcw, Search, Filter, ArrowUpDown, X } from 'lucide-react';
+import { Radio, Plus, AlertCircle, RotateCcw, Search, Filter, ArrowUpDown, X, Activity, CheckCircle2, AlertTriangle, XCircle, PauseCircle } from 'lucide-react';
 import { monitorsApi } from '../../api/monitors';
 import MonitorCard from '../../components/monitors/MonitorCard';
 
@@ -47,6 +47,16 @@ export default function Monitors() {
     }, 10000);
     return () => clearInterval(intervalId);
   }, [fetchMonitors]);
+
+  // Calculate Summary Metrics from Real Backend Data
+  const summaryMetrics = useMemo(() => {
+    const total = monitors.length;
+    const operational = monitors.filter((m) => m.is_active && m.status === 'UP').length;
+    const degraded = monitors.filter((m) => m.is_active && m.status === 'DEGRADED').length;
+    const down = monitors.filter((m) => m.is_active && m.status === 'DOWN').length;
+    const paused = monitors.filter((m) => !m.is_active || m.status === 'PAUSED').length;
+    return { total, operational, degraded, down, paused };
+  }, [monitors]);
 
   // Filter & Sort Logic
   const filteredAndSortedMonitors = useMemo(() => {
@@ -115,12 +125,11 @@ export default function Monitors() {
             color: 'var(--text-primary)',
             padding: '12px 20px',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
+            boxShadow: 'var(--card-shadow)',
             border: '1px solid var(--border)',
             zIndex: 1000,
             fontSize: '0.875rem',
             fontWeight: 500,
-            animation: 'fadeIn 0.2s ease-in-out',
           }}
         >
           {toastMessage}
@@ -133,7 +142,7 @@ export default function Monitors() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '1.5rem',
+          marginBottom: '1.25rem',
           flexWrap: 'wrap',
           gap: '1rem',
         }}
@@ -147,13 +156,130 @@ export default function Monitors() {
         </Link>
       </div>
 
-      {/* Toolbar: Search, Filters, Sorting */}
+      {/* Compact Summary Metrics Bar (Real Data Only) */}
+      {!loading && !error && monitors.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '1.25rem',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--surface)',
+            }}
+          >
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                TOTAL
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px', lineHeight: 1 }}>
+                {summaryMetrics.total}
+              </div>
+            </div>
+            <Activity size={18} style={{ color: 'var(--text-muted)', opacity: 0.7 }} />
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--surface)',
+            }}
+          >
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                OPERATIONAL
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--success)', marginTop: '2px', lineHeight: 1 }}>
+                {summaryMetrics.operational}
+              </div>
+            </div>
+            <CheckCircle2 size={18} style={{ color: 'var(--success)', opacity: 0.8 }} />
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--surface)',
+            }}
+          >
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                DEGRADED
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--warning)', marginTop: '2px', lineHeight: 1 }}>
+                {summaryMetrics.degraded}
+              </div>
+            </div>
+            <AlertTriangle size={18} style={{ color: 'var(--warning)', opacity: 0.8 }} />
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--surface)',
+            }}
+          >
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                DOWN
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--danger)', marginTop: '2px', lineHeight: 1 }}>
+                {summaryMetrics.down}
+              </div>
+            </div>
+            <XCircle size={18} style={{ color: 'var(--danger)', opacity: 0.8 }} />
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '0.75rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'var(--surface)',
+            }}
+          >
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                PAUSED
+              </span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--neutral-status)', marginTop: '2px', lineHeight: 1 }}>
+                {summaryMetrics.paused}
+              </div>
+            </div>
+            <PauseCircle size={18} style={{ color: 'var(--neutral-status)', opacity: 0.8 }} />
+          </div>
+        </div>
+      )}
+
+      {/* Tight Operational Search & Filter Toolbar */}
       {!loading && !error && monitors.length > 0 && (
         <div
           className="card"
           style={{
-            padding: '1rem',
-            marginBottom: '1.5rem',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -161,12 +287,11 @@ export default function Monitors() {
             gap: '0.75rem',
           }}
         >
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
+          {/* Search Box - Majority width */}
+          <div style={{ position: 'relative', flex: '1 1 320px', minWidth: '240px' }}>
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              className="input"
               placeholder="Search monitors by name or URL..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -188,28 +313,26 @@ export default function Monitors() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Filter size={14} style={{ color: 'var(--text-muted)' }} />
               <select
-                className="input"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem' }}
+                style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem', width: 'auto' }}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="UP">UP</option>
-                <option value="DOWN">DOWN</option>
                 <option value="DEGRADED">DEGRADED</option>
+                <option value="DOWN">DOWN</option>
                 <option value="PENDING">PENDING</option>
                 <option value="PAUSED">PAUSED</option>
               </select>
             </div>
 
-            {/* Sorting Field */}
+            {/* Sorting Field & Direction */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <ArrowUpDown size={14} style={{ color: 'var(--text-muted)' }} />
               <select
-                className="input"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem' }}
+                style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem', width: 'auto' }}
               >
                 <option value="name">Sort by Name</option>
                 <option value="status">Sort by Status</option>
@@ -222,7 +345,7 @@ export default function Monitors() {
                 title={`Sort ${sortDir === 'asc' ? 'Descending' : 'Ascending'}`}
                 style={{ padding: '0.375rem 0.625rem', fontSize: '0.75rem', fontWeight: 600 }}
               >
-                {sortDir.toUpperCase()}
+                {sortDir === 'asc' ? 'ASC ↕' : 'DESC ↕'}
               </button>
             </div>
 
@@ -250,10 +373,9 @@ export default function Monitors() {
               key={skeletonId}
               className="card"
               style={{
-                height: '110px',
+                height: '100px',
                 backgroundColor: 'var(--surface-secondary)',
-                opacity: 0.7,
-                animation: 'pulse 1.5s infinite ease-in-out',
+                opacity: 0.6,
               }}
             />
           ))}
@@ -289,16 +411,16 @@ export default function Monitors() {
         </div>
       )}
 
-      {/* Zero Monitors Base Empty State */}
+      {/* Base Zero Monitors Empty State */}
       {!loading && !error && monitors.length === 0 && (
         <div className="empty-state">
-          <Radio size={36} className="empty-state-icon" />
+          <Radio size={36} className="empty-state-icon" style={{ color: 'var(--brand)' }} />
           <h2 className="empty-state-title">No monitors yet</h2>
           <p className="empty-state-desc">
-            Add your first monitor to start tracking service availability and response time.
+            Monitor your first website or HTTP endpoint with PulseOps to track uptime and performance.
           </p>
           <Link to="/monitors/new" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Plus size={16} /> Create your first monitor
+            <Plus size={16} /> Create Monitor
           </Link>
         </div>
       )}
@@ -309,15 +431,15 @@ export default function Monitors() {
           <Search size={32} className="empty-state-icon" style={{ opacity: 0.5 }} />
           <h3 className="empty-state-title" style={{ fontSize: '1.125rem' }}>No monitors match your filters</h3>
           <p className="empty-state-desc" style={{ fontSize: '0.875rem' }}>
-            Try adjusting your search term or status filter criteria.
+            Adjust your search terms or status criteria to view monitors.
           </p>
           <button type="button" onClick={clearFilters} className="btn btn-secondary btn-sm" style={{ marginTop: '0.5rem' }}>
-            Clear filters
+            Clear Filters
           </button>
         </div>
       )}
 
-      {/* Real Monitor List Grid */}
+      {/* Monitor List Grid */}
       {!loading && !error && filteredAndSortedMonitors.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
           {filteredAndSortedMonitors.map((monitor) => (

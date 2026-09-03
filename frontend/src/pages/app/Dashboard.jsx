@@ -729,7 +729,7 @@ export default function Dashboard() {
                 Response Time Latency Visualizer
               </h3>
               <span className="body-text text-muted" style={{ fontSize: '0.75rem' }}>
-                Real health-check response time trends (ms) across active targets with hourly time details.
+                Real health-check response times across monitored targets.
               </span>
             </div>
 
@@ -1090,10 +1090,42 @@ function ResponseTimeChart({ checks }) {
     };
   });
 
-  const pathD = coords.reduce((acc, pt, i) => (i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`), '');
-  const areaD = pathD
-    ? `${pathD} L ${coords[coords.length - 1].x} ${paddingTop + chartH} L ${coords[0].x} ${paddingTop + chartH} Z`
-    : '';
+  const GAP_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
+  let pathD = '';
+  let areaPaths = [];
+  let currentSubPath = [];
+
+  coords.forEach((pt, i) => {
+    if (i === 0) {
+      pathD += `M ${pt.x} ${pt.y}`;
+      currentSubPath.push(pt);
+    } else {
+      const prevPt = coords[i - 1];
+      const tPrev = new Date(prevPt.time?.endsWith('Z') ? prevPt.time : `${prevPt.time}Z`).getTime();
+      const tCurr = new Date(pt.time?.endsWith('Z') ? pt.time : `${pt.time}Z`).getTime();
+      const diffMs = tCurr - tPrev;
+
+      if (diffMs > GAP_THRESHOLD_MS) {
+        pathD += ` M ${pt.x} ${pt.y}`;
+        if (currentSubPath.length > 0) areaPaths.push(currentSubPath);
+        currentSubPath = [pt];
+      } else {
+        pathD += ` L ${pt.x} ${pt.y}`;
+        currentSubPath.push(pt);
+      }
+    }
+  });
+  if (currentSubPath.length > 0) areaPaths.push(currentSubPath);
+
+  const areaD = areaPaths.map(subPath => {
+    if (subPath.length === 0) return '';
+    let d = `M ${subPath[0].x} ${subPath[0].y}`;
+    for (let i = 1; i < subPath.length; i++) {
+      d += ` L ${subPath[i].x} ${subPath[i].y}`;
+    }
+    d += ` L ${subPath[subPath.length - 1].x} ${paddingTop + chartH} L ${subPath[0].x} ${paddingTop + chartH} Z`;
+    return d;
+  }).join(' ');
 
   const formatHourLabel = (isoStr) => {
     if (!isoStr) return '';

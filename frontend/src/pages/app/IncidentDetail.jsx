@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, CheckCircle2, Clock, Globe, ShieldAlert, Radio, Activity } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Globe, ShieldAlert, Radio, Activity, Clock, CheckCircle2 } from 'lucide-react';
 import { incidentsApi } from '../../api/incidents';
 import { monitorsApi } from '../../api/monitors';
 import { healthApi } from '../../api/health';
@@ -59,15 +59,15 @@ export default function IncidentDetail() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '840px', margin: '0 auto', width: '100%' }}>
-        <p className="body-text text-muted">Loading incident details...</p>
+      <div style={{ width: '100%' }}>
+        <p className="body-text text-muted" style={{ fontSize: '0.875rem' }}>Loading incident details...</p>
       </div>
     );
   }
 
   if (error || !incident) {
     return (
-      <div style={{ maxWidth: '840px', margin: '0 auto', width: '100%' }}>
+      <div style={{ width: '100%' }}>
         <Link
           to="/incidents"
           style={{
@@ -117,9 +117,9 @@ export default function IncidentDetail() {
   }
 
   return (
-    <div style={{ maxWidth: '840px', margin: '0 auto', width: '100%' }}>
-      {/* Top Back Navigation */}
-      <div style={{ marginBottom: '1.5rem' }}>
+    <div style={{ width: '100%' }}>
+      {/* Navigation Header */}
+      <div style={{ marginBottom: '1.25rem' }}>
         <Link
           to="/incidents"
           style={{
@@ -143,54 +143,64 @@ export default function IncidentDetail() {
               <StatusBadge status={incident.status} />
             </div>
             <p className="page-desc" style={{ marginTop: '4px' }}>
-              Detailed root cause analysis, downtime duration, and associated monitor details.
+              Root cause analysis, downtime duration, and execution history.
             </p>
           </div>
 
           {monitor && (
             <Link to={`/monitors/${monitor.id}`} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Radio size={15} /> View Monitor Detail
+              <Radio size={15} /> View Monitor Details
             </Link>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Incident Summary Card */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Incident Summary Metadata Grid */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <h2 className="heading-md" style={{ margin: 0 }}>Incident Summary</h2>
+          <h2 className="heading-md" style={{ margin: 0 }}>Incident Details</h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem' }}>
             <div>
-              <span className="body-text text-muted" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '4px' }}>Incident Status</span>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                Incident Lifecycle
+              </span>
               <StatusBadge status={incident.status} size="small" />
             </div>
 
             {monitor && (
               <div>
-                <span className="body-text text-muted" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '4px' }}>Current Monitor Status</span>
+                <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                  Monitor Status
+                </span>
                 <StatusBadge status={monitor.status} size="small" />
               </div>
             )}
 
             <div>
-              <span className="body-text text-muted" style={{ fontSize: '0.75rem', display: 'block' }}>Downtime Duration</span>
-              <span className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                Downtime Duration
+              </span>
+              <span className="font-mono" style={{ fontWeight: 600, color: isOpen ? 'var(--danger)' : 'var(--text-primary)', fontSize: '0.9375rem' }}>
                 {computedDurationText}
               </span>
             </div>
 
             <div>
-              <span className="body-text text-muted" style={{ fontSize: '0.75rem', display: 'block' }}>Started At</span>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                Started At
+              </span>
               <span className="font-mono" style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
                 {startDate ? startDate.toLocaleString() : 'N/A'}
               </span>
             </div>
 
             <div>
-              <span className="body-text text-muted" style={{ fontSize: '0.75rem', display: 'block' }}>Resolved At</span>
+              <span className="font-mono" style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>
+                Resolved At
+              </span>
               <span className="font-mono" style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                {endDate ? endDate.toLocaleString() : (isOpen ? 'Not resolved yet' : 'N/A')}
+                {endDate ? endDate.toLocaleString() : (isOpen ? 'Ongoing' : 'N/A')}
               </span>
             </div>
           </div>
@@ -200,20 +210,27 @@ export default function IncidentDetail() {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <h3 className="heading-md" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShieldAlert size={18} style={{ color: isOpen ? 'var(--danger)' : 'var(--warning)' }} />
-            Root Cause & Failure Log
+            Root Cause Failure Log
           </h3>
 
-          <div style={{ padding: '1rem', backgroundColor: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-            <p className="font-mono" style={{ fontSize: '0.875rem', color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
+          <div
+            style={{
+              padding: '0.875rem 1rem',
+              backgroundColor: 'var(--surface-secondary)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <p className="font-mono" style={{ fontSize: '0.875rem', color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word', lineHeight: 1.5 }}>
               {incident.reason || 'Consecutive failed health checks exceeded trigger threshold.'}
             </p>
           </div>
         </div>
 
-        {/* Associated Monitor Resource */}
+        {/* Associated Target Monitor */}
         {monitor && (
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h3 className="heading-md" style={{ margin: 0 }}>Target Monitor Resource</h3>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <h3 className="heading-md" style={{ margin: 0 }}>Target Endpoint</h3>
             
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
@@ -226,7 +243,7 @@ export default function IncidentDetail() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8125rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                 <span>Method: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{monitor.method}</strong></span>
                 <span>Interval: <strong>{monitor.interval}s</strong></span>
                 <span>Failure Threshold: <strong>{monitor.failure_threshold}</strong></span>
@@ -235,40 +252,40 @@ export default function IncidentDetail() {
           </div>
         )}
 
-        {/* Health Check Log Timeline */}
+        {/* Health Check Timeline */}
         {healthChecks.length > 0 && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h3 className="heading-md" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={18} style={{ color: 'var(--brand-dark)' }} /> Monitor Health Timeline
+              <Activity size={18} style={{ color: 'var(--brand-dark)' }} /> Execution Timeline
             </h3>
 
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                    <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                    <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Code</th>
-                    <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Latency</th>
-                    <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Time</th>
-                    <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Details</th>
+                    <th style={{ padding: '0.625rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '0.625rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Code</th>
+                    <th style={{ padding: '0.625rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Latency</th>
+                    <th style={{ padding: '0.625rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Timestamp</th>
+                    <th style={{ padding: '0.625rem 0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' }}>Message</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {healthChecks.slice(0, 10).map((chk) => (
+                  {healthChecks.slice(0, 15).map((chk) => (
                     <tr key={chk.id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <StatusBadge status={chk.status} />
+                      <td style={{ padding: '0.625rem 0.75rem' }}>
+                        <StatusBadge status={chk.status} size="small" />
                       </td>
-                      <td className="font-mono" style={{ padding: '0.5rem 0.75rem', fontWeight: 600 }}>
+                      <td className="font-mono" style={{ padding: '0.625rem 0.75rem', fontWeight: 600 }}>
                         {chk.status_code ?? '—'}
                       </td>
-                      <td className="font-mono" style={{ padding: '0.5rem 0.75rem' }}>
+                      <td className="font-mono" style={{ padding: '0.625rem 0.75rem' }}>
                         {chk.response_time !== null ? `${chk.response_time}ms` : '—'}
                       </td>
-                      <td className="font-mono" style={{ padding: '0.5rem 0.75rem', fontSize: '0.8125rem' }}>
+                      <td className="font-mono" style={{ padding: '0.625rem 0.75rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                         {new Date(chk.checked_at.endsWith('Z') ? chk.checked_at : `${chk.checked_at}Z`).toLocaleString()}
                       </td>
-                      <td style={{ padding: '0.5rem 0.75rem', color: chk.error ? 'var(--danger)' : 'var(--text-muted)' }}>
+                      <td style={{ padding: '0.625rem 0.75rem', color: chk.error ? 'var(--danger)' : 'var(--text-muted)', fontSize: '0.8125rem' }}>
                         {chk.error || 'OK'}
                       </td>
                     </tr>

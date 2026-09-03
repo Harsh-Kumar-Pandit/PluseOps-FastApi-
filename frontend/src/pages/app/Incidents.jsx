@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, RotateCcw, AlertCircle, Search, ArrowUpDown, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RotateCcw, AlertCircle, Search, ArrowUpDown, X, Globe, ArrowRight } from 'lucide-react';
 import { incidentsApi } from '../../api/incidents';
 import { monitorsApi } from '../../api/monitors';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -92,6 +92,12 @@ export default function Incidents() {
 
   const openCount = incidents.filter((i) => i.status === 'OPEN').length;
   const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
+  const hasActiveFilters = searchQuery.trim() !== '' || filter !== 'ALL';
+
+  const clearFilters = () => {
+    setFilter('ALL');
+    setSearchQuery('');
+  };
 
   return (
     <div style={{ width: '100%' }}>
@@ -101,7 +107,7 @@ export default function Incidents() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '1.5rem',
+          marginBottom: '1.25rem',
           flexWrap: 'wrap',
           gap: '1rem',
         }}
@@ -111,30 +117,31 @@ export default function Incidents() {
           <p className="page-desc">Track service downtime, root cause logs, and resolution timelines.</p>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Segmented Control Filter Tabs */}
         <div
           style={{
             display: 'inline-flex',
-            padding: '4px',
+            padding: '3px',
             backgroundColor: 'var(--surface-secondary)',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border)',
-            gap: '4px',
+            gap: '2px',
           }}
         >
           <button
             type="button"
             onClick={() => setFilter('ALL')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
               fontSize: '0.8125rem',
-              fontWeight: 500,
+              fontWeight: filter === 'ALL' ? 600 : 500,
               border: 'none',
               cursor: 'pointer',
               backgroundColor: filter === 'ALL' ? 'var(--surface)' : 'transparent',
               color: filter === 'ALL' ? 'var(--text-primary)' : 'var(--text-secondary)',
-              boxShadow: filter === 'ALL' ? 'var(--shadow-sm)' : 'none',
+              boxShadow: filter === 'ALL' ? 'var(--card-shadow)' : 'none',
+              transition: 'all var(--transition-fast)',
             }}
           >
             All ({incidents.length})
@@ -143,15 +150,16 @@ export default function Incidents() {
             type="button"
             onClick={() => setFilter('OPEN')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
               fontSize: '0.8125rem',
-              fontWeight: 500,
+              fontWeight: filter === 'OPEN' ? 600 : 500,
               border: 'none',
               cursor: 'pointer',
               backgroundColor: filter === 'OPEN' ? 'var(--surface)' : 'transparent',
               color: filter === 'OPEN' ? 'var(--danger)' : 'var(--text-secondary)',
-              boxShadow: filter === 'OPEN' ? 'var(--shadow-sm)' : 'none',
+              boxShadow: filter === 'OPEN' ? 'var(--card-shadow)' : 'none',
+              transition: 'all var(--transition-fast)',
             }}
           >
             Open ({openCount})
@@ -160,15 +168,16 @@ export default function Incidents() {
             type="button"
             onClick={() => setFilter('RESOLVED')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               borderRadius: 'var(--radius-sm)',
               fontSize: '0.8125rem',
-              fontWeight: 500,
+              fontWeight: filter === 'RESOLVED' ? 600 : 500,
               border: 'none',
               cursor: 'pointer',
               backgroundColor: filter === 'RESOLVED' ? 'var(--surface)' : 'transparent',
               color: filter === 'RESOLVED' ? 'var(--success)' : 'var(--text-secondary)',
-              boxShadow: filter === 'RESOLVED' ? 'var(--shadow-sm)' : 'none',
+              boxShadow: filter === 'RESOLVED' ? 'var(--card-shadow)' : 'none',
+              transition: 'all var(--transition-fast)',
             }}
           >
             Resolved ({resolvedCount})
@@ -176,13 +185,13 @@ export default function Incidents() {
         </div>
       </div>
 
-      {/* Toolbar: Search & Sort */}
+      {/* Tight Operational Filter Toolbar */}
       {!loading && !error && incidents.length > 0 && (
         <div
           className="card"
           style={{
-            padding: '1rem',
-            marginBottom: '1.5rem',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -190,11 +199,11 @@ export default function Incidents() {
             gap: '0.75rem',
           }}
         >
-          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
+          {/* Search Box - Majority width */}
+          <div style={{ position: 'relative', flex: '1 1 340px', minWidth: '240px' }}>
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              className="input"
               placeholder="Search by monitor name or root cause..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -211,18 +220,31 @@ export default function Incidents() {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ArrowUpDown size={14} style={{ color: 'var(--text-muted)' }} />
-            <select
-              className="input"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem' }}
-            >
-              <option value="newest">Sort by Newest</option>
-              <option value="oldest">Sort by Oldest</option>
-              <option value="duration">Sort by Duration</option>
-            </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {/* Sorting Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ArrowUpDown size={14} style={{ color: 'var(--text-muted)' }} />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={{ padding: '0.375rem 0.625rem', fontSize: '0.8125rem', width: 'auto' }}
+              >
+                <option value="newest">Sort by Newest</option>
+                <option value="oldest">Sort by Oldest</option>
+                <option value="duration">Sort by Duration</option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.8125rem', color: 'var(--brand-dark)' }}
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -236,10 +258,9 @@ export default function Incidents() {
               key={id}
               className="card"
               style={{
-                height: '90px',
+                height: '110px',
                 backgroundColor: 'var(--surface-secondary)',
-                opacity: 0.7,
-                animation: 'pulse 1.5s infinite ease-in-out',
+                opacity: 0.6,
               }}
             />
           ))}
@@ -275,7 +296,7 @@ export default function Incidents() {
         </div>
       )}
 
-      {/* Zero Incidents Empty State */}
+      {/* Zero Incidents Base Empty State */}
       {!loading && !error && incidents.length === 0 && (
         <div className="empty-state">
           <CheckCircle2 size={36} className="empty-state-icon" style={{ color: 'var(--success)' }} />
@@ -286,29 +307,26 @@ export default function Incidents() {
         </div>
       )}
 
-      {/* Filtered Zero State */}
+      {/* Filtered Zero Results State */}
       {!loading && !error && incidents.length > 0 && processedIncidents.length === 0 && (
         <div className="card empty-state" style={{ padding: '2.5rem 1rem' }}>
           <AlertTriangle size={32} className="empty-state-icon" style={{ opacity: 0.5 }} />
           <h3 className="empty-state-title" style={{ fontSize: '1.125rem' }}>No matching incidents found</h3>
           <p className="empty-state-desc" style={{ fontSize: '0.875rem' }}>
-            Try adjusting your search query or status filter.
+            Adjust your search query or status filter to locate incident records.
           </p>
           <button
             type="button"
-            onClick={() => {
-              setFilter('ALL');
-              setSearchQuery('');
-            }}
+            onClick={clearFilters}
             className="btn btn-secondary btn-sm"
             style={{ marginTop: '0.5rem' }}
           >
-            Clear filters
+            Clear Filters
           </button>
         </div>
       )}
 
-      {/* Incidents List */}
+      {/* Incidents Operational Card List */}
       {!loading && !error && processedIncidents.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {processedIncidents.map((incident) => {
@@ -328,43 +346,111 @@ export default function Incidents() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.75rem',
+                  gap: '0.875rem',
+                  padding: '1.25rem 1.5rem',
                   borderLeft: isOpen ? '4px solid var(--danger)' : '4px solid var(--success)',
+                  transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
                 }}
               >
+                {/* Header Row: Incident ID, Monitor Link & Status Badge */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="font-mono" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        Incident #{incident.id}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span
+                        className="font-mono"
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 700,
+                          color: isOpen ? 'var(--danger)' : 'var(--text-primary)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {isOpen ? '🔴' : '🟢'} INCIDENT #{incident.id}
                       </span>
+
                       {monitor && (
-                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--brand-dark)' }}>
-                          • {monitor.name}
-                        </span>
+                        <>
+                          <span style={{ color: 'var(--text-muted)' }}>•</span>
+                          <Link
+                            to={`/monitors/${monitor.id}`}
+                            style={{
+                              fontSize: '0.9375rem',
+                              fontWeight: 600,
+                              color: 'var(--text-primary)',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            {monitor.name}
+                          </Link>
+                        </>
                       )}
                     </div>
+
                     {monitor && (
-                      <span className="font-mono" style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
-                        {monitor.url}
-                      </span>
+                      <div
+                        className="font-mono"
+                        style={{
+                          fontSize: '0.8125rem',
+                          color: 'var(--text-secondary)',
+                          marginTop: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Globe size={13} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={monitor.url}>
+                          {monitor.url}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {monitor && (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Monitor: <StatusBadge status={monitor.status} size="small" />
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     <StatusBadge status={incident.status} />
                   </div>
                 </div>
 
-                <p className="body-text" style={{ fontSize: '0.875rem', color: 'var(--text-primary)', margin: 0 }}>
-                  <strong>Root Cause:</strong> {incident.reason || 'Health check threshold exceeded'}
-                </p>
+                {/* Root Cause Section */}
+                <div
+                  style={{
+                    backgroundColor: 'var(--surface-secondary)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-muted)',
+                    padding: '0.625rem 0.875rem',
+                  }}
+                >
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      display: 'block',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    ROOT CAUSE
+                  </span>
+                  <p
+                    className="font-mono"
+                    style={{
+                      fontSize: '0.8125rem',
+                      color: 'var(--text-primary)',
+                      margin: 0,
+                      wordBreak: 'break-word',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {incident.reason || 'Health check thresholds exceeded'}
+                  </p>
+                </div>
 
+                {/* Timing Metadata & Link Action */}
                 <div
                   style={{
                     display: 'flex',
@@ -375,19 +461,52 @@ export default function Incidents() {
                     fontSize: '0.8125rem',
                     color: 'var(--text-muted)',
                     borderTop: '1px solid var(--border-muted)',
-                    paddingTop: '0.5rem',
+                    paddingTop: '0.625rem',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <span>Started: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{startDate ? startDate.toLocaleString() : 'N/A'}</strong></span>
+                    <span>
+                      Started:{' '}
+                      <strong className="font-mono" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {startDate ? startDate.toLocaleString() : 'N/A'}
+                      </strong>
+                    </span>
                     {endDate && (
-                      <span>Resolved: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{endDate.toLocaleString()}</strong></span>
+                      <span>
+                        Resolved:{' '}
+                        <strong className="font-mono" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                          {endDate.toLocaleString()}
+                        </strong>
+                      </span>
                     )}
-                    <span>Duration: <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{incident.duration !== null ? `${incident.duration}s` : 'Ongoing'}</strong></span>
+                    <span>
+                      Duration:{' '}
+                      <strong
+                        className="font-mono"
+                        style={{
+                          color: isOpen ? 'var(--danger)' : 'var(--text-primary)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {incident.duration !== null && incident.duration !== undefined ? `${incident.duration}s` : 'Ongoing'}
+                      </strong>
+                    </span>
                   </div>
 
-                  <Link to={`/incidents/${incident.id}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
-                    View Full Incident Report
+                  <Link
+                    to={`/incidents/${incident.id}`}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.8125rem',
+                      padding: '0.375rem 0.625rem',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <span>View Incident Report</span>
+                    <ArrowRight size={13} />
                   </Link>
                 </div>
               </div>

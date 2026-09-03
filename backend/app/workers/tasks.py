@@ -13,6 +13,7 @@ from app.models.health_check import HealthCheck
 from app.models.incident import Incident
 from app.models.monitor import Monitor
 from app.models.notification import Notification
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 RETENTION_DAYS = 31
@@ -56,6 +57,66 @@ def cleanup_old_health_checks():
     finally:
         db.close()
 
+@celery_app.task
+def send_notification_email_task(notification_id: int):
+    db = SessionLocal()
+    try:
+        from app.services.email import send_transactional_email
+        
+        notification = db.get(Notification, notification_id)
+        if not notification:
+            logger.error(f"Notification {notification_id} not found.")
+            return
+            
+        monitor = db.get(Monitor, notification.monitor_id)
+        user = db.get(User, notification.user_id)
+        
+        if not monitor or not user:
+            logger.error("Monitor or user not found for notification.")
+            return
+
+        if not user.email_notifications_enabled:
+            return
+
+        if notification.type == "DOWN" and not user.down_alerts_enabled:
+            return
+
+        if notification.type == "RECOVERY" and not user.recovery_alerts_enabled:
+            return
+
+        subject = notification.title
+        if notification.type == "DOWN":
+            html_content = f"""
+            <h2>[PulseOps] Monitor Down: {monitor.name}</h2>
+            <p><strong>Monitor Name:</strong> {monitor.name}</p>
+            <p><strong>URL:</strong> {monitor.url}</p>
+            <p><strong>Status:</strong> DOWN</p>
+            <p><strong>Failure Reason:</strong> {notification.message}</p>
+            <p><strong>Expected Status:</strong> {monitor.expected_status}</p>
+            <p><strong>Incident Start Time:</strong> {notification.created_at}</p>
+            <p>Please check your application.</p>
+            """
+        elif notification.type == "RECOVERY":
+            incident = db.get(Incident, notification.incident_id)
+            duration = incident.duration if incident and incident.duration else 0
+            html_content = f"""
+            <h2>[PulseOps] Monitor Recovered: {monitor.name}</h2>
+            <p><strong>Monitor Name:</strong> {monitor.name}</p>
+            <p><strong>URL:</strong> {monitor.url}</p>
+            <p><strong>Status:</strong> RECOVERED</p>
+            <p><strong>Downtime Duration:</strong> {duration} seconds</p>
+            <p><strong>Recovery Time:</strong> {notification.created_at}</p>
+            """
+        else:
+            return
+
+        send_transactional_email(user.email, subject, html_content)
+        
+    except Exception as e:
+        logger.error(f"Error in send_notification_email_task: {e}", exc_info=True)
+    finally:
+        db.close()
+
 
 @celery_app.task
 def check_monitor(monitor_id: int, lock_token: str | None = None):
@@ -88,10 +149,8 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
 
         response = None
         last_error = None
+        notif_ids = []
 
-        # -----------------------------
-        # REQUEST + RETRY
-        # -----------------------------
         for attempt in range(max_attempts):
             try:
                 response = httpx.request(
@@ -131,9 +190,6 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
 
         response_time = int((time.perf_counter() - start_time) * 1000)
 
-        # -----------------------------
-        # DETERMINE CHECK RESULT
-        # -----------------------------
         if response is not None:
             if response.status_code == monitor.expected_status:
                 monitor.consecutive_failures = 0
@@ -178,10 +234,7 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
                                 )
                                 db.add(notif)
                                 db.flush()
-                                try:
-                                    send_email_notification_task.delay(notif.id)
-                                except Exception as e_task:
-                                    logger.warning(f"Could not queue email task for Notification #{notif.id}: {e_task}")
+                                notif_ids.append(notif.id)
 
                     elif monitor.status in ("PENDING", "DEGRADED"):
                         monitor.status = "UP"
@@ -223,10 +276,7 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
                         )
                         db.add(notif)
                         db.flush()
-                        try:
-                            send_email_notification_task.delay(notif.id)
-                        except Exception as e_task:
-                            logger.warning(f"Could not queue email task for Notification #{notif.id}: {e_task}")
+                        notif_ids.append(notif.id)
         else:
             status = "DOWN"
             error = last_error or "Request failed"
@@ -265,14 +315,8 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
                     )
                     db.add(notif)
                     db.flush()
-                    try:
-                        send_email_notification_task.delay(notif.id)
-                    except Exception as e_task:
-                        logger.warning(f"Could not queue email task for Notification #{notif.id}: {e_task}")
+                    notif_ids.append(notif.id)
 
-        # -----------------------------
-        # STORE HEALTH CHECK & UPDATE LAST_CHECKED_AT
-        # -----------------------------
         now_check_time = datetime.utcnow()
         health_check = HealthCheck(
             monitor_id=monitor.id,
@@ -284,10 +328,12 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
         )
 
         db.add(health_check)
-        # Update last_checked_at only AFTER actual HTTP check completed!
         monitor.last_checked_at = now_check_time
 
         db.commit()
+        
+        for nid in notif_ids:
+            send_notification_email_task.delay(nid)
 
         end_time_dt = datetime.utcnow()
         logger.info(
@@ -314,7 +360,6 @@ def check_monitor(monitor_id: int, lock_token: str | None = None):
         raise
     finally:
         db.close()
-        # Safely release ONLY the lock owned by this specific task execution token
         if redis_client and lock_token:
             try:
                 val = redis_client.get(lock_key)
@@ -401,127 +446,5 @@ def check_all_monitors():
         db.rollback()
         logger.error(f"Error in check_all_monitors: {exc}", exc_info=True)
         raise
-    finally:
-        db.close()
-
-
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
-def send_email_notification_task(self, notification_id: int):
-    """
-    Celery task that sends an alert email asynchronously for a specific notification.
-    Ensures idempotency: if email_status is already 'SENT', skips sending.
-    """
-    db = SessionLocal()
-    try:
-        notif = db.query(Notification).filter(Notification.id == notification_id).first()
-        if not notif:
-            logger.warning(f"send_email_notification_task: Notification #{notification_id} not found.")
-            return {"status": "not_found"}
-
-        # Idempotency check: duplicate email protection
-        if notif.email_status == "SENT":
-            logger.info(f"send_email_notification_task: Email for Notification #{notification_id} already SENT. Skipping duplicate.")
-            return {"status": "already_sent"}
-
-        user = notif.user
-        if not user or not user.email:
-            notif.email_status = "SKIPPED"
-            notif.email_error = "User email missing"
-            db.commit()
-            return {"status": "user_email_missing"}
-
-        # Check user master notification preference
-        if hasattr(user, "email_notifications_enabled") and not user.email_notifications_enabled:
-            notif.email_status = "SKIPPED"
-            notif.email_error = "Email notifications disabled by master user preference"
-            db.commit()
-            return {"status": "disabled_by_user"}
-
-        # Check granular event alert preferences
-        if notif.type == "DOWN" and hasattr(user, "down_alerts_enabled") and not user.down_alerts_enabled:
-            notif.email_status = "SKIPPED"
-            notif.email_error = "DOWN email alerts disabled by user preference"
-            db.commit()
-            return {"status": "down_alerts_disabled"}
-
-        if notif.type == "RECOVERY" and hasattr(user, "recovery_alerts_enabled") and not user.recovery_alerts_enabled:
-            notif.email_status = "SKIPPED"
-            notif.email_error = "RECOVERY email alerts disabled by user preference"
-            db.commit()
-            return {"status": "recovery_alerts_disabled"}
-
-        # Check SMTP configuration
-        from app.services.email import (
-            is_smtp_configured,
-            send_notification_email,
-            build_down_email,
-            build_recovery_email,
-        )
-
-        if not is_smtp_configured():
-            notif.email_status = "NOT_CONFIGURED"
-            notif.email_error = "SMTP credentials missing in environment"
-            db.commit()
-            logger.info(f"send_email_notification_task: SMTP not configured. Marked Notification #{notification_id} as NOT_CONFIGURED.")
-            return {"status": "smtp_not_configured"}
-
-        monitor = notif.monitor
-        incident = notif.incident
-
-        monitor_name = monitor.name if monitor else "Unknown Monitor"
-        monitor_url = monitor.url if monitor else "N/A"
-
-        if notif.type == "DOWN":
-            reason = incident.reason if incident else notif.message
-            started_at = incident.started_at if incident else notif.created_at
-            incident_id = incident.id if incident else "N/A"
-            subject, text, html = build_down_email(
-                monitor_name=monitor_name,
-                monitor_url=monitor_url,
-                reason=reason,
-                incident_id=incident_id,
-                started_at=started_at,
-            )
-        elif notif.type == "RECOVERY":
-            incident_id = incident.id if incident else "N/A"
-            started_at = incident.started_at if incident else notif.created_at
-            resolved_at = incident.resolved_at if (incident and incident.resolved_at) else datetime.utcnow()
-            duration = incident.duration if incident else None
-            subject, text, html = build_recovery_email(
-                monitor_name=monitor_name,
-                monitor_url=monitor_url,
-                incident_id=incident_id,
-                started_at=started_at,
-                resolved_at=resolved_at,
-                duration_seconds=duration,
-            )
-        else:
-            subject = f"[PulseOps] {notif.title}"
-            text = f"{notif.title}\n\n{notif.message}"
-            html = f"<h2>{notif.title}</h2><p>{notif.message}</p>"
-
-        # Dispatch email
-        res = send_notification_email(
-            to_email=user.email,
-            subject=subject,
-            text_content=text,
-            html_content=html,
-        )
-
-        if res["success"]:
-            notif.email_status = "SENT"
-            notif.email_sent_at = datetime.utcnow()
-            notif.email_error = None
-        else:
-            notif.email_status = "FAILED"
-            notif.email_error = res["error"]
-
-        db.commit()
-        return {"status": notif.email_status, "error": notif.email_error}
-
-    except Exception as err:
-        logger.error(f"Error in send_email_notification_task for Notification #{notification_id}: {err}")
-        db.rollback()
-        raise err
     finally:
         db.close()
