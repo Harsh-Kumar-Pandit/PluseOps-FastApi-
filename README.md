@@ -149,5 +149,5 @@ npm start
 
 ## 👤 Author
 
-**Harsh Kumar Pandit** — B.Tech CSE, GGITS Jabalpur (RGPV)
+**Harsh Kumar Pandit**
 [GitHub](https://github.com/Harsh-Kumar-Pandit)
