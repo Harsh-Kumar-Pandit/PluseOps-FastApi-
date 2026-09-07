@@ -29,6 +29,8 @@ A containerized backend system for real-time service monitoring, alerting, and i
 - 🔐 **JWT Authentication** — access + refresh token flow for secure, stateless sessions
 - 📡 **Scheduled Health Monitoring** — periodic checks run automatically via Celery Beat
 - 🚨 **Incident & Alert Pipeline** — issues detected by monitoring flow into trackable incidents
+- 🔔 **In-App Notifications** — real-time alerts surfaced directly in the dashboard
+- 📧 **Email Notifications** — powered by [Resend](https://resend.com/), dispatched asynchronously via Celery
 - ⚙️ **Async Task Processing** — notifications and alert dispatch run on Celery workers, off the request cycle
 - 🗃️ **Persistent Storage** — PostgreSQL for users, services, and incident history
 - ⚡ **Redis-Backed** — used as both the Celery broker and application cache
@@ -64,6 +66,7 @@ All five services (`backend`, `db`, `redis`, `worker`, `beat`) run in their own 
 | Cache / Broker | Redis 7 |
 | Async Tasks | Celery Worker |
 | Scheduling | Celery Beat |
+| Email | Resend |
 | Frontend | JavaScript/TypeScript (`frontend/`) |
 | Containerization | Docker & Docker Compose |
 | Type Checking | Pyrefly |
@@ -101,6 +104,7 @@ REDIS_URL=redis://redis:6379/0
 JWT_SECRET_KEY=your-secret-key
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+RESEND_API_KEY=your-resend-api-key
 ```
 
 **3. Run the stack**
@@ -137,7 +141,6 @@ npm start
 
 ## 🗺️ Roadmap
 
-- [ ] Slack/Email/Webhook alert integrations
 - [ ] Incident timeline & post-mortem reports
 - [ ] Role-based access control (RBAC)
 - [ ] CI/CD pipeline + automated tests
