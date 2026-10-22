@@ -1,8 +1,7 @@
 /**
  * Centralized API HTTP Client for PulseOps
  */
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://174.129.151.99:8000').replace(/\/$/, '');
 
 const TOKEN_KEY = 'pulseops_access_token';
 const REFRESH_TOKEN_KEY = 'pulseops_refresh_token';
