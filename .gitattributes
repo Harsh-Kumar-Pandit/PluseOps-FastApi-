@@ -1,1 +1,5 @@
+# Exclude frontend JavaScript from language statistics
+client/** linguist-vendored
 
+# Keep Python backend counted
+server/**/*.py linguist-detectable
