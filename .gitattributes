@@ -1,5 +1,6 @@
-# Exclude frontend JavaScript from language statistics
-client/** linguist-vendored
 
-# Keep Python backend counted
-server/**/*.py linguist-detectable
+# Exclude frontend files from GitHub language statistics
+/frontend/** linguist-vendored
+
+# Keep Python backend files detectable
+/backend/**/*.py linguist-detectable
